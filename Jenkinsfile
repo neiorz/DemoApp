@@ -1,51 +1,30 @@
+@Library('my-shared-lib') _
+
 pipeline {
-    agent any
+    agent { label 'agent-1' }
+
     environment {
-        DOCKERHUB_CREDENTIALS = credentials('docker-hub-credentials')
         IMAGE_NAME = 'nourz1/demo-app'
     }
+
     stages {
-        stage('1. Build Maven App') {
+        stage('1. Build App') {
             steps {
-                sh "mvn clean package"
+                buildApp()
             }
         }
-        stage('2. Build Docker Image') {
+        stage('2. Build Image') {
             steps {
-                sh "docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} ."
+                buildImage(env.IMAGE_NAME, env.BUILD_NUMBER)
             }
         }
-        stage('3. Scan Docker Image') {
+        stage('3. Deploy on K8s') {
             steps {
-                sh "trivy image --exit-code 0 --severity HIGH,CRITICAL ${IMAGE_NAME}:${BUILD_NUMBER}"
-            }
-        }
-        stage('4. Push to DockerHub') {
-            steps {
-                sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
-                sh "docker push ${IMAGE_NAME}:${BUILD_NUMBER}"
-            }
-        }
-        stage('5. Delete Image Locally') {
-            steps {
-                sh "docker rmi ${IMAGE_NAME}:${BUILD_NUMBER}"
-            }
-        }
-        stage('6. Update Deployment File') {
-            steps {
-                sh "sed -i 's|image:.*|image: ${IMAGE_NAME}:${BUILD_NUMBER}|g' deployment.yaml"
-                sh "git config user.email 'jenkins@ivolve.com'"
-                sh "git config user.name 'Jenkins CI'"
-                sh "git add deployment.yaml"
-                sh "git commit -m 'Update image tag to ${BUILD_NUMBER}' || true"
-            }
-        }
-        stage('7. Deploy to Kubernetes') {
-            steps {
-                sh "kubectl apply -f deployment.yaml"
+                deployOnK8s(env.IMAGE_NAME, env.BUILD_NUMBER)
             }
         }
     }
+
     post {
         always {
             echo "Pipeline finished execution."
@@ -58,4 +37,3 @@ pipeline {
         }
     }
 }
-
