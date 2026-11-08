@@ -14,6 +14,6 @@ spec:
     spec:
       containers:
       - name: demo-app
-        image: nourz1/demo-app:latest
+        image: nourz1/demo-app:1
         ports:
         - containerPort: 8080
